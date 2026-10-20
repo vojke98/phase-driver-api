@@ -1,0 +1,83 @@
+# Releasing the API: push a tag v<version> - the same version as in pom.xml, with a section in CHANGELOG.md:
+#
+#   git tag v1.0.0 && git push origin v1.0.0
+#
+# GitHub then builds and tests that commit and publishes it twice:
+#   - a GitHub Release with the jar, its sources and documentation, its pom and SHA256SUMS - to download by hand;
+#   - the same files in the `maven` branch of this repository, laid out as a Maven repository, so a build finds them itself:
+#       <repository><url>https://raw.githubusercontent.com/vojke98/phase-driver-api/maven</url></repository>
+# A released version is never replaced: a change is a new version.
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write  # the release, and the maven branch
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The version, from the tag - the pom's
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # the project's own version: the first line that is a whole <version>...</version> element
+          pom=$(grep -m1 -E '^[[:space:]]*<version>[^<]+</version>' pom.xml | sed -E 's/.*<version>(.*)<\/version>.*/\1/')
+          if [ "$version" != "$pom" ]; then echo "::error::the tag says $version, pom.xml says $pom"; exit 1; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Its notes, from CHANGELOG.md
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          awk -v version="$VERSION" 'index($0, "## [" version "]") == 1 { found = 1; next } found && /^## \[/ { exit } found { print }' CHANGELOG.md > notes.md
+          grep -q '[^[:space:]]' notes.md || { echo "::error::CHANGELOG.md has no section '## [$VERSION]'"; exit 1; }
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build and test, into the Maven repository of the maven branch
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$remote" maven >/dev/null; then
+            git clone --quiet --branch maven --depth 1 "$remote" repo
+          else
+            git init --quiet -b maven repo && git -C repo remote add origin "$remote"
+          fi
+          if [ -d "repo/io/github/vojke98/phase-driver-api/$VERSION" ]; then
+            echo "::error::$VERSION is released already - a change is a new version"; exit 1
+          fi
+          ./mvnw -B -ntp deploy -DaltDeploymentRepository=maven::file:repo
+
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir release
+          cp target/phase-driver-api-$VERSION.jar target/phase-driver-api-$VERSION-sources.jar target/phase-driver-api-$VERSION-javadoc.jar release/
+          cp pom.xml release/phase-driver-api-$VERSION.pom
+          (cd release && sha256sum * > SHA256SUMS)
+          gh release create "$GITHUB_REF_NAME" release/* --title "Phase driver API $VERSION" --notes-file notes.md
+
+      - name: Publish the Maven repository (the maven branch)
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cd repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit --quiet -m "phase-driver-api $VERSION"
+          git push --quiet origin maven
