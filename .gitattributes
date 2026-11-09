@@ -1,0 +1,6 @@
+# Normalise line endings in the repository; the Windows wrapper script keeps CRLF, the shell one must stay LF.
+* text=auto
+mvnw text eol=lf
+*.cmd text eol=crlf
+*.sh text eol=lf
+*.jar binary
