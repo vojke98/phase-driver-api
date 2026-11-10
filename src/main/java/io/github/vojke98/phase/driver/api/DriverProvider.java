@@ -41,6 +41,14 @@ public interface DriverProvider {
     }
 
     /**
+     * The same, for a tag of {@code dataType}: what the tag registry asks when a tag is saved. A protocol that cannot carry a type
+     * at all (text, on a bus without it) refuses it here, with a message the tag form shows.
+     */
+    default AddressCheck checkAddress(String address, DataType dataType) {
+        return checkAddress(address);
+    }
+
+    /**
      * A driver for one device - {@link Polled}, {@link Pushing} or both; nothing connects yet ({@link Driver#open} comes later, on
      * the device's own thread).
      *

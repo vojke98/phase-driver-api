@@ -3,7 +3,7 @@
 What a **protocol driver** for [Phase](https://github.com/vojke98/phase) (a SCADA server) implements - and nothing else of the server.
 A driver is one jar: the server loads it from its drivers folder at run time, so a new protocol needs no change to Phase itself.
 
-- Coordinates: `io.github.vojke98:phase-driver-api:1.0.0`, package `io.github.vojke98.phase.driver.api`
+- Coordinates: `io.github.vojke98:phase-driver-api:1.1.0`, package `io.github.vojke98.phase.driver.api`
 - No dependencies. Java 21 or newer.
 - License: Apache License 2.0 - write and sell drivers of your own as you like.
 
@@ -26,13 +26,13 @@ a driver never bundles it.
 <dependency>
     <groupId>io.github.vojke98</groupId>
     <artifactId>phase-driver-api</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <scope>provided</scope>
 </dependency>
 ```
 
 (Gradle: `maven { url "https://raw.githubusercontent.com/vojke98/phase-driver-api/maven" }` and
-`compileOnly "io.github.vojke98:phase-driver-api:1.0.0"`.)
+`compileOnly "io.github.vojke98:phase-driver-api:1.1.0"`.)
 
 ## Writing a driver
 
@@ -57,6 +57,10 @@ count as changes (deadbands), status codes when the device is away. A driver kee
 A `ReadResult` is a value with its `StatusCode` (GOOD; UNCERTAIN; BAD, BAD_NO_SUCH_ADDRESS, BAD_DEVICE_FAILURE, ... - after OPC UA's,
 each with its `Quality`) and optionally the device's own timestamp. An `IOException` means the device did not answer; an address the
 device does not have, or a value it refuses, is that address's result.
+
+A tag's `DataType` is `BOOLEAN`, `INT16`, `INT32`, `FLOAT32` or `STRING` (text, a `String` both ways). A protocol whose text has
+a fixed room on the device says how many characters fit: `AddressCheck.valid(DataType.STRING, true, 20)` or `TagInfo`'s
+`maxLength`. A protocol without text refuses `STRING` in `checkAddress(address, dataType)`, which the tag registry asks when a tag is saved.
 
 ```java
 public class MyBusDriverProvider implements DriverProvider {

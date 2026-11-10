@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.github.vojke98</groupId>
     <artifactId>phase-driver-api</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <name>Phase driver API</name>
     <description>What a protocol driver for Phase SCADA implements, and what the Phase server calls - nothing else of the
         server. No dependencies: a driver is built against this jar alone (scope provided - the server has it).
